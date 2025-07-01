@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+# App
+.app.sqlite
+# VSCode
+.vscode/
+# OS
+.DS_Store
