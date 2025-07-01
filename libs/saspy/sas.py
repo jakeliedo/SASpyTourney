@@ -27,7 +27,7 @@ class Sas:
     def __init__(
         self,
         port,  # Serial Port full Address
-        baudrate =19200,
+        baudrate,
         timeout=2,  # Connection timeout
         poll_address=0x82,  # Poll Address
         denom=0.01,  # Denomination
@@ -41,6 +41,7 @@ class Sas:
         wait_for_wake_up=0.00,
     ):
         # Let's address some internal var
+        self.port = port
         self.poll_timeout = timeout
         self.address = None
         self.baudrate = baudrate
