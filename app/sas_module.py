@@ -3,6 +3,9 @@ from state import state
 import time
 import threading
 
+# Lock toàn cục để tránh xung đột truy cập cổng COM
+serial_lock = threading.Lock()
+
 # Khởi tạo kết nối với máy slot qua giao thức SAS
 
 def setup_sas():
@@ -11,8 +14,9 @@ def setup_sas():
     connected = False
     while not connected:
         try:
-            print(f"⏳ Thử handshake với máy slot trên {sas.port}")
-            addr = sas.start()
+            print("⏳ Thử handshake với máy slot trên COM4")
+            with serial_lock:
+                addr = sas.start()
 
             if isinstance(addr, str) and addr.isdigit():
                 addr = int(addr)
@@ -33,54 +37,73 @@ def setup_sas():
 
 # Các vòng lặp trạng thái chính
 
+def event_poll_safe(sas):
+    try:
+        with serial_lock:
+            ev = sas.events_poll()
+        print(f"[Poll] raw ev = {ev!r}")
+        if isinstance(ev, str) and ev.isdigit():
+            ev = int(ev)
+        elif isinstance(ev, str):
+            print(f"[Poll] ⚠️ Không thể ép kiểu ev='{ev}' thành int")
+            return ev
+        return hex(ev)
+    except Exception as e:
+        print(f"[Poll] ❌ events_poll Exception: {e!r}")
+        return 'ERR'
+
 def poll_loop(sas):
     while True:
-        try:
-            ev = sas.events_poll()
-            state['event'] = hex(ev)
-        except Exception as e:
-            state['event'] = 'ERR'
+        state['event'] = event_poll_safe(sas)
         print(f"[Poll] event = {state['event']}")
         time.sleep(1)
 
 def credit_loop(sas):
     while True:
         try:
-            c = sas.current_credits()
+            with serial_lock:
+                c = sas.current_credits()
             state['credit'] = c
             state['last_updated'] = time.strftime("%H:%M:%S")
         except Exception as e:
-            state['credit'] = -1
+            state['credit'] = 'ERR'
+            print(f"[Credit] ❌ Exception: {e!r}")
         print(f"[Credit] {state['credit']} @ {state['last_updated']}")
         time.sleep(2)
 
 def meters_loop(sas):
     while True:
         try:
-            meters = sas.read_meters()
+            with serial_lock:
+                meters = sas.read_meters()
             state['meters'] = meters
         except Exception as e:
             state['meters'] = 'ERR'
+            print(f"[Meters] ❌ Exception: {e!r}")
         print(f"[Meters] {state['meters']}")
         time.sleep(5)
 
 def game_features_loop(sas):
     while True:
         try:
-            features = sas.game_features()
+            with serial_lock:
+                features = sas.game_features()
             state['features'] = features
         except Exception as e:
             state['features'] = 'ERR'
+            print(f"[Features] ❌ Exception: {e!r}")
         print(f"[Features] {state['features']}")
         time.sleep(10)
 
 def eft_status_loop(sas):
     while True:
         try:
-            status = sas.eft_status()
+            with serial_lock:
+                status = sas.eft_status()
             state['eft_status'] = status
         except Exception as e:
             state['eft_status'] = 'ERR'
+            print(f"[EFT] ❌ Exception: {e!r}")
         print(f"[EFT] {state['eft_status']}")
         time.sleep(15)
 
